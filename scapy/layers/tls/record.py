@@ -93,9 +93,9 @@ class _TLSMsgListField(PacketListField):
         if pkt.type == 22:
             if len(m) >= 1:
                 msgtype = orb(m[0])
-                if ((pkt.tls_session.advertised_tls_version == 0x0304) or
-                        (pkt.tls_session.tls_version and
-                         pkt.tls_session.tls_version == 0x0304)):
+                if ((pkt.tls_session.advertised_tls_version == 0x0304 and
+                        pkt.tls_session.tls_version is None) or
+                        pkt.tls_session.tls_version == 0x0304):
                     cls = _tls13_handshake_cls.get(msgtype, Raw)
                 else:
                     cls = _tls_handshake_cls.get(msgtype, Raw)
