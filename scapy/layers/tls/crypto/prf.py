@@ -221,6 +221,28 @@ class PRF(object):
         else:
             return self.prf(pre_master_secret, b"master secret", seed, 48)
 
+    def compute_extended_master_secret(
+        self, pre_master_secret, handshake_messages,
+    ):
+        """
+        Return the 48-byte extended master secret, computed from pre_master_secret,
+        constant, and hash from handshake messages. See RFC 7627, section 4.
+        """
+        if self.tls_version < 0x0300 or self.tls_version > 0x0303:
+            return None
+
+        hash_messages = b''.join(handshake_messages)
+
+        if self.tls_version < 0x0303:
+            md5 = _tls_hash_algs["MD5"]()
+            sha1 = _tls_hash_algs["SHA"]()
+            session_hash = md5.digest(hash_messages) + sha1.digest(hash_messages)
+        else:
+            h = _tls_hash_algs[self.hash_name]()
+            session_hash = h.digest(hash_messages)
+
+        return self.prf(pre_master_secret, b"extended master secret", session_hash, 48)
+
     def derive_key_block(self, master_secret, server_random,
                          client_random, req_len):
         """

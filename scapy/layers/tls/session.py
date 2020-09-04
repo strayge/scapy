@@ -422,6 +422,9 @@ class tlsSession(object):
         self.pre_master_secret = None
         self.master_secret = None
 
+        # Flags from extension (TLS 1.0-TLS 1.2 only)
+        self.use_extended_master_secret = False
+
         # The agreed-upon signature algorithm (for TLS 1.2-TLS 1.3 only)
         self.selected_sig_alg = None
 
@@ -527,9 +530,14 @@ class tlsSession(object):
         if self.server_random is None:
             warning("Missing server_random while computing master_secret!")
 
-        ms = self.pwcs.prf.compute_master_secret(self.pre_master_secret,
-                                                 self.client_random,
-                                                 self.server_random)
+        if self.use_extended_master_secret:
+            ms = self.pwcs.prf.compute_extended_master_secret(
+                self.pre_master_secret, self.handshake_messages,
+            )
+        else:
+            ms = self.pwcs.prf.compute_master_secret(self.pre_master_secret,
+                                                     self.client_random,
+                                                     self.server_random)
         self.master_secret = ms
         if conf.debug_tls:
             log_runtime.debug("TLS: master secret: %s", repr_hex(ms))

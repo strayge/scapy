@@ -48,6 +48,7 @@ from scapy.layers.tls.extensions import (_ExtensionsLenField, _ExtensionsField,
                                          TLS_Ext_SignatureAlgorithms,
                                          TLS_Ext_SupportedVersion_SH,
                                          TLS_Ext_EarlyDataIndication,
+                                         TLS_Ext_ExtendedMasterSecret,
                                          _tls_hello_retry_magic)
 from scapy.layers.tls.keyexchange import (_TLSSignature, _TLSServerParamsField,
                                           _TLSSignatureField, ServerRSAParams,
@@ -533,6 +534,12 @@ class TLSServerHello(_TLSHandshake):
         self.random_bytes = msg_str[10:38]
         self.tls_session.server_random = msg_str[6:38]
         self.tls_session.sid = self.sid
+
+        if self.ext:
+            for ext in self.ext:
+                if isinstance(ext, TLS_Ext_ExtendedMasterSecret):
+                    self.tls_session.use_extended_master_secret = True
+                    break
 
         cs_cls = None
         if self.cipher:
@@ -1288,6 +1295,15 @@ class TLSClientKeyExchange(_TLSHandshake):
                 cls = Raw()
             self.exchkeys = cls
         return _TLSHandshake.build(self, *args, **kargs)
+
+    def post_dissection_tls_session_update(self, msg_str):
+        self.tls_session_update(msg_str)
+        exchkeys = self.getfieldval("exchkeys")
+        if exchkeys:
+            for exchkeys_rec in exchkeys:
+                if getattr(exchkeys_rec, "post_dissection_tls_session_update"):
+                    exchkeys_rec.post_dissection_tls_session_update(msg_str)
+
 
 
 ###############################################################################

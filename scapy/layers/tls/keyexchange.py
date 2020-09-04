@@ -864,6 +864,11 @@ class EncryptedPreMasterSecret(_GenericTLSSessionInheritance):
                 return _UnEncryptedPreMasterSecret
         return EncryptedPreMasterSecret
 
+    def post_dissection_tls_session_update(self, msg_str):
+        """Extended master secret required current message added to
+        handshake_messages. So waiting till tls_session being updated."""
+        self.tls_session.compute_ms_and_derive_keys()
+
     def pre_dissect(self, m):
         s = self.tls_session
         tbd = m
@@ -893,7 +898,6 @@ class EncryptedPreMasterSecret(_GenericTLSSessionInheritance):
             warning(err)
 
         s.pre_master_secret = pms
-        s.compute_ms_and_derive_keys()
 
         return pms
 
