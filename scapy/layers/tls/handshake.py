@@ -1309,14 +1309,13 @@ class TLSClientKeyExchange(_TLSHandshake):
         """
         Finalize the EXTMS messages and compute the hash
         """
-
-        self.tls_session.handshake_messages.append(msg_str)
-        self.tls_session.handshake_messages_parsed.append(self)
+        super(TLSClientKeyExchange, self).tls_session_update(msg_str)
 
         if self.tls_session.extms:
             hash_object = self.tls_session.pwcs.hash
             to_hash = b''.join(self.tls_session.handshake_messages)
             self.tls_session.session_hash = hash_object.digest(to_hash)
+            self.tls_session.compute_ms_and_derive_keys()
 
 
 ###############################################################################
