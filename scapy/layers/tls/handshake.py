@@ -42,6 +42,7 @@ from scapy.layers.x509 import OCSP_Response
 from scapy.layers.tls.cert import Cert
 from scapy.layers.tls.basefields import (_tls_version, _TLSVersionField,
                                          _TLSClientVersionField)
+from scapy.layers.tls.crypto.hash import _tls_hash_algs
 from scapy.layers.tls.extensions import (_ExtensionsLenField, _ExtensionsField,
                                          _cert_status_type,
                                          TLS_Ext_SupportedVersion_CH,
@@ -1312,9 +1313,18 @@ class TLSClientKeyExchange(_TLSHandshake):
         super(TLSClientKeyExchange, self).tls_session_update(msg_str)
 
         if self.tls_session.extms:
-            hash_object = self.tls_session.pwcs.hash
             to_hash = b''.join(self.tls_session.handshake_messages)
-            self.tls_session.session_hash = hash_object.digest(to_hash)
+            if self.tls_session.tls_version == 0x0303:
+                # TLS 1.2 used default hash function from cipher suite
+                hash_object = self.tls_session.pwcs.hash
+                self.tls_session.session_hash = hash_object.digest(to_hash)
+            else:
+                # previous TLS used concatenation of MD5 & SHA1
+                md5 = _tls_hash_algs["MD5"]()
+                sha1 = _tls_hash_algs["SHA"]()
+                self.tls_session.session_hash = (
+                    md5.digest(to_hash) + sha1.digest(to_hash)
+                )
             self.tls_session.compute_ms_and_derive_keys()
 
 
