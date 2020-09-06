@@ -448,6 +448,18 @@ class TLS(_GenericTLSSessionInheritance):
         if cipher_type == 'block':
             version = struct.unpack("!H", s[1:3])[0]
 
+            if self.tls_session.encrypt_then_mac:
+                tmp_len = self.tls_session.rcs.mac_len
+                if tmp_len != 0:
+                    efrag, mac = efrag[:-tmp_len], efrag[-tmp_len:]
+                else:
+                    efrag, mac = efrag, b""
+                chdr = hdr[:3] + struct.pack('!H', len(efrag))
+                is_mac_ok = self._tls_hmac_verify(chdr, efrag, mac)
+                if not is_mac_ok:
+                    pkt_info = self.firstlayer().summary()
+                    log_runtime.info("TLS: record integrity check failed [%s]", pkt_info)  # noqa: E501
+
             # Decrypt
             try:
                 if version >= 0x0302:
@@ -481,19 +493,22 @@ class TLS(_GenericTLSSessionInheritance):
                 mfrag, pad = pfrag[:-padlen], pfrag[-padlen:]
                 self.padlen = padlen
 
-                # Extract MAC
-                tmp_len = self.tls_session.rcs.mac_len
-                if tmp_len != 0:
-                    cfrag, mac = mfrag[:-tmp_len], mfrag[-tmp_len:]
+                if self.tls_session.encrypt_then_mac:
+                    cfrag = mfrag
                 else:
-                    cfrag, mac = mfrag, b""
+                    # Extract MAC
+                    tmp_len = self.tls_session.rcs.mac_len
+                    if tmp_len != 0:
+                        cfrag, mac = mfrag[:-tmp_len], mfrag[-tmp_len:]
+                    else:
+                        cfrag, mac = mfrag, b""
 
-                # Verify integrity
-                chdr = hdr[:3] + struct.pack('!H', len(cfrag))
-                is_mac_ok = self._tls_hmac_verify(chdr, cfrag, mac)
-                if not is_mac_ok:
-                    pkt_info = self.firstlayer().summary()
-                    log_runtime.info("TLS: record integrity check failed [%s]", pkt_info)  # noqa: E501
+                    # Verify integrity
+                    chdr = hdr[:3] + struct.pack('!H', len(cfrag))
+                    is_mac_ok = self._tls_hmac_verify(chdr, cfrag, mac)
+                    if not is_mac_ok:
+                        pkt_info = self.firstlayer().summary()
+                        log_runtime.info("TLS: record integrity check failed [%s]", pkt_info)  # noqa: E501
 
         elif cipher_type == 'stream':
             # Decrypt
